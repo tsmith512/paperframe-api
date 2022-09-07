@@ -11,6 +11,15 @@ export interface Env {
   STORAGE: R2Bucket;
 }
 
+interface imageMeta {
+  title: string,
+  filename: string,
+  order: number,
+  deleted?: boolean
+}
+
+type imageCarousel = imageMeta[];
+
 const router = Router();
 
 const basic404 = () => new Response('Route not found', { status: 404 });
@@ -31,27 +40,41 @@ router.post('/api/new', async (request, env: Env, context) => {
   const data = request.formData ? await request.formData() : false;
 
   if (data) {
-    const title = data.get('title') || 'Untitled';
     const file = data.get('image');
+    const title = data.get('title') || file.name || 'Untitled';
+    const filename = `upload-${Date.now()}.${file.name.replace(/.+\./,'')}`;
 
-    console.log(title, file.name);
+    const carousel: imageCarousel = await env.METADATA.get('carousel')
+    .then((data) => data ? JSON.parse(data) : []);
 
-    // @TODO: Need to figure out how to create a unique filename / ID
-    // and maybe a single document rather than one per upload?
-    const record = {
+    const meta: imageMeta = {
       title,
-      id: file.name,
-      filename: Date.now() + file.name,
+      filename,
+      order: carousel.length, // @TODO: So if the carousel is an array, we don't need this...?
     };
 
-    // @TODO: So this works, but uhhhh error handling??
-    const storage = await env.STORAGE.put(record.filename, file.stream());
+    carousel.push(meta);
 
-    // @TODO: And don't do this part unless the R2 save completed...
-    await env.METADATA.put(record.filename, JSON.stringify(record));
 
-    // @TODO: Yeah. Sure. It must have worked.
-    return new Response('Image uploaded', { status: 201 });
+    const success = await env.STORAGE.put(filename, file.stream())
+    .then(async (stored) => {
+      console.log('file uploaded');
+      return await env.METADATA.put('carousel', JSON.stringify(carousel))
+    })
+    .then(async (data) => {
+      // @TODO: I am not sure if this is a good way to know that both operations
+      // succeeded or not...
+      return true;
+    })
+    .catch((error) => {
+      console.log(JSON.stringify(error));
+    });
+
+    if (success === true) {
+      return new Response('Image uploaded', { status: 201 });
+    }
+
+    return new Response('Unknown error', { status: 500 });
   }
 });
 
