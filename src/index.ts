@@ -12,13 +12,19 @@ export interface Env {
 }
 
 interface imageMeta {
+  id: number,
   title: string,
   filename: string,
   order: number,
-  deleted?: boolean
 }
 
 type imageCarousel = imageMeta[];
+
+interface paperframeContext {
+  carousel: imageCarousel,
+  current: number,
+  autoinc: number,
+}
 
 const router = Router();
 
@@ -27,7 +33,22 @@ const basic200 = () => new Response('Paperframe backend is running');
 
 router.get('/api', basic200);
 
-router.get('/api/now', (request, env, context) => {
+router.all('*', async (request, env: Env, context: any) => {
+  // Get our index of all images.
+  context.carousel = await env.METADATA.get('carousel')
+  .then((data) => data ? JSON.parse(data) : []);
+
+  // Get the current (@TODO: Order or ID?) that should be on display right now.
+  context.current = await env.METADATA.get('current')
+  .then((data) => data ? parseInt(data) : 0);
+
+  // For setting numeric IDs on images, a simple auto_increment counter. We
+  // increment here when the value is read, and will _save_ it if we change it.
+  context.autoinc = await env.METADATA.get('autoinc')
+  .then((data) => data ? parseInt(data) + 1 : 0);
+});
+
+router.get('/api/now', (request, env, context: paperframeContext) => {
   return new Response('See sample', {
     status: 302,
     headers: {
@@ -36,7 +57,7 @@ router.get('/api/now', (request, env, context) => {
   })
 });
 
-router.post('/api/new', async (request, env: Env, context) => {
+router.post('/api/new', async (request, env: Env, context: paperframeContext) => {
   const data = request.formData ? await request.formData() : false;
 
   if (data) {
@@ -44,22 +65,23 @@ router.post('/api/new', async (request, env: Env, context) => {
     const title = data.get('title') || file.name || 'Untitled';
     const filename = `upload-${Date.now()}.${file.name.replace(/.+\./,'')}`;
 
-    const carousel: imageCarousel = await env.METADATA.get('carousel')
-    .then((data) => data ? JSON.parse(data) : []);
-
     const meta: imageMeta = {
+      id: context.autoinc,
       title,
       filename,
-      order: carousel.length, // @TODO: So if the carousel is an array, we don't need this...?
+      order: context.carousel.length, // @TODO: So if the carousel is an array, we don't need this...?
     };
 
-    carousel.push(meta);
+    context.carousel.push(meta);
 
 
     const success = await env.STORAGE.put(filename, file.stream())
     .then(async (stored) => {
       console.log('file uploaded');
-      return await env.METADATA.put('carousel', JSON.stringify(carousel))
+      return await Promise.all([
+        env.METADATA.put('carousel', JSON.stringify(context.carousel)),
+        env.METADATA.put('autoinc', context.autoinc.toString()),
+      ]);
     })
     .then(async (data) => {
       // @TODO: I am not sure if this is a good way to know that both operations
@@ -68,9 +90,10 @@ router.post('/api/new', async (request, env: Env, context) => {
     })
     .catch((error) => {
       console.log(JSON.stringify(error));
+      return false;
     });
 
-    if (success === true) {
+    if (success) {
       return new Response('Image uploaded', { status: 201 });
     }
 
@@ -90,6 +113,14 @@ router.get('/api/image/:id', async (request, env: Env, context) => {
       });
     }
   }
+});
+
+router.get('/api/bulk', async (request, env: Env, context: paperframeContext) => {
+  return new Response(JSON.stringify(context.carousel), {
+    headers: {
+      'content-type': 'application/json',
+    }
+  });
 });
 
 router.all('*', basic404);
