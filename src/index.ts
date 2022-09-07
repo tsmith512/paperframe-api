@@ -1,12 +1,4 @@
-/**
- * Welcome to Cloudflare Workers! This is your first worker.
- *
- * - Run `wrangler dev src/index.ts` in your terminal to start a development server
- * - Open a browser tab at http://localhost:8787/ to see your worker in action
- * - Run `wrangler publish src/index.ts --name my-worker` to publish your worker
- *
- * Learn more at https://developers.cloudflare.com/workers/
- */
+import { Router } from "itty-router";
 
 export interface Env {
 	// Example binding to KV. Learn more at https://developers.cloudflare.com/workers/runtime-apis/kv/
@@ -19,12 +11,23 @@ export interface Env {
 	// MY_BUCKET: R2Bucket;
 }
 
+const router = Router();
+
+const basic404 = () => new Response('Route not found', { status: 404 });
+const basic200 = () => new Response('Paperframe backend is running');
+
+router.get('/api', basic200);
+
+router.get('/api/now', (request, env, context) => {
+	return new Response('Current image');
+});
+
+router.get('/api/image/:id', (request, env, context) => {
+	return new Response(`Returning image ${request.params?.id}`);
+});
+
+router.all('*', basic404);
+
 export default {
-	async fetch(
-		request: Request,
-		env: Env,
-		ctx: ExecutionContext
-	): Promise<Response> {
-		return new Response("Hello World!");
-	},
+	fetch: router.handle,
 };
