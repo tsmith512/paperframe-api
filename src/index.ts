@@ -55,48 +55,53 @@ router.get('/api/now', (request, env: paperframeEnv, context: paperframeContext)
   });
 });
 
-router.post('/api/new', async (request, env: paperframeEnv, context: paperframeContext) => {
+router.post('/api/image', async (request, env: paperframeEnv, context: paperframeContext) => {
   const data = request.formData ? await request.formData() : false;
 
-  if (data) {
-    const file = data.get('image');
-    const title = data.get('title') || file.name || 'Untitled';
-    const filename = `upload-${Date.now()}.${file.name.replace(/.+\./,'')}`;
-
-    const meta: imageMeta = {
-      id: context.autoinc,
-      title,
-      filename,
-      order: context.carousel.length, // @TODO: So if the carousel is an array, we don't need this...?
-    };
-
-    context.carousel.push(meta);
-
-
-    const success = await env.STORAGE.put(filename, file.stream())
-    .then(async (stored) => {
-      console.log('file uploaded');
-      return await Promise.all([
-        env.METADATA.put('carousel', JSON.stringify(context.carousel)),
-        env.METADATA.put('autoinc', context.autoinc.toString()),
-      ]);
-    })
-    .then(async (data) => {
-      // @TODO: I am not sure if this is a good way to know that both operations
-      // succeeded or not...
-      return true;
-    })
-    .catch((error) => {
-      console.log(JSON.stringify(error));
-      return false;
-    });
-
-    if (success) {
-      return new Response('Image uploaded', { status: 201 });
-    }
-
-    return new Response('Unknown error', { status: 500 });
+  if (!data) {
+    return new Response('Empty submission', { status: 400 });
   }
+
+  const file = data.get('image');
+  const title = data.get('title') || file.name || 'Untitled';
+  const filename = `upload-${Date.now()}.${file.name.replace(/.+\./,'')}`;
+
+  if (!file) {
+    return new Response('Could not process upload', { status: 400 });
+  }
+
+  const meta: imageMeta = {
+    id: context.autoinc,
+    title,
+    filename,
+    order: context.carousel.length, // @TODO: So if the carousel is an array, we don't need this...?
+  };
+
+  context.carousel.push(meta);
+
+  const success = await env.STORAGE.put(filename, file.stream())
+  .then(async (stored) => {
+    console.log('file uploaded');
+    return await Promise.all([
+      env.METADATA.put('carousel', JSON.stringify(context.carousel)),
+      env.METADATA.put('autoinc', context.autoinc.toString()),
+    ]);
+  })
+  .then(async (data) => {
+    // @TODO: I am not sure if this is a good way to know that both operations
+    // succeeded or not...
+    return true;
+  })
+  .catch((error) => {
+    console.log(JSON.stringify(error));
+    return false;
+  });
+
+  if (success) {
+    return new Response('Image uploaded', { status: 201 });
+  }
+
+  return new Response('Unknown error', { status: 500 });
 });
 
 router.get('/api/image/:id', async (request, env: paperframeEnv, context: paperframeContext) => {
@@ -112,7 +117,38 @@ router.get('/api/image/:id', async (request, env: paperframeEnv, context: paperf
   }
 });
 
-router.get('/api/bulk', async (request, env: paperframeEnv, context: paperframeContext) => {
+router.delete('/api/image/:id', async (request, env: paperframeEnv, context: paperframeContext) => {
+  const index = context.carousel.findIndex((i) => i.id.toString() === request.params?.id);
+  const image = context.carousel[index];
+
+  if (!image || index < 0) {
+    return;
+  }
+
+  // Drop the frame from the carousel
+  context.carousel.splice(index, 1);
+
+  // Delete from storage
+  const success = await env.STORAGE.delete(image.filename)
+  .then(async () => {
+    return await env.METADATA.put('carousel', JSON.stringify(context.carousel))
+  })
+  .then(async (data) => {
+    return true;
+  })
+  .catch((error) => {
+    console.log(JSON.stringify(error));
+    return false;
+  });
+
+  if (success) {
+    return new Response(null, { status: 204 });
+  }
+
+  return new Response('Unknown error', { status: 500 });
+});
+
+router.get('/api/carousel', async (request, env: paperframeEnv, context: paperframeContext) => {
   return new Response(JSON.stringify(context.carousel), {
     headers: {
       'content-type': 'application/json',
