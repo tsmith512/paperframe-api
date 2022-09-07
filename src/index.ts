@@ -27,9 +27,36 @@ router.get('/api/now', (request, env, context) => {
   })
 });
 
-router.get('/api/image/:id', async (request, env, context) => {
+router.post('/api/new', async (request, env: Env, context) => {
+  const data = request.formData ? await request.formData() : false;
+
+  if (data) {
+    const title = data.get('title') || 'Untitled';
+    const file = data.get('image');
+
+    console.log(title, file.name);
+
+    // @TODO: Need to figure out how to create a unique filename / ID
+    // and maybe a single document rather than one per upload?
+    const record = {
+      title,
+      id: file.name,
+      filename: Date.now() + file.name,
+    };
+
+    // @TODO: So this works, but uhhhh error handling??
+    const storage = await env.STORAGE.put(record.filename, file.stream());
+
+    // @TODO: And don't do this part unless the R2 save completed...
+    await env.METADATA.put(record.filename, JSON.stringify(record));
+
+    // @TODO: Yeah. Sure. It must have worked.
+    return new Response('Image uploaded', { status: 201 });
+  }
+});
+
+router.get('/api/image/:id', async (request, env: Env, context) => {
   if (request.params?.id == 'sample') {
-    // @TODO: the Env interface typings aren't getting picked up here...
     const sample = await env.STORAGE.get('sample.jpg');
 
     if (sample?.body) {
