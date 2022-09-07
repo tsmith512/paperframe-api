@@ -1,13 +1,7 @@
 import { Router } from "itty-router";
 
-export interface Env {
-  // Example binding to KV. Learn more at https://developers.cloudflare.com/workers/runtime-apis/kv/
+interface paperframeEnv {
   METADATA: KVNamespace;
-  //
-  // Example binding to Durable Object. Learn more at https://developers.cloudflare.com/workers/runtime-apis/durable-objects/
-  // MY_DURABLE_OBJECT: DurableObjectNamespace;
-  //
-  // Example binding to R2. Learn more at https://developers.cloudflare.com/workers/runtime-apis/r2/
   STORAGE: R2Bucket;
 }
 
@@ -33,7 +27,7 @@ const basic200 = () => new Response('Paperframe backend is running');
 
 router.get('/api', basic200);
 
-router.all('*', async (request, env: Env, context: any) => {
+router.all('*', async (request, env: paperframeEnv, context: any) => {
   // Get our index of all images.
   context.carousel = await env.METADATA.get('carousel')
   .then((data) => data ? JSON.parse(data) : []);
@@ -48,16 +42,20 @@ router.all('*', async (request, env: Env, context: any) => {
   .then((data) => data ? parseInt(data) + 1 : 0);
 });
 
-router.get('/api/now', (request, env, context: paperframeContext) => {
-  return new Response('See sample', {
+router.get('/api/now', (request, env: paperframeEnv, context: paperframeContext) => {
+  // Figure out what image should be currently displayed
+  const image = context.carousel[context.current % context.carousel.length];
+
+  // Redirect to it. (@TODO: Should we be nice and send it directly?)
+  return new Response('See current frame', {
     status: 302,
     headers: {
-      'Location': '/api/image/sample',
+      'Location': `/api/image/${image.id}`,
     },
-  })
+  });
 });
 
-router.post('/api/new', async (request, env: Env, context: paperframeContext) => {
+router.post('/api/new', async (request, env: paperframeEnv, context: paperframeContext) => {
   const data = request.formData ? await request.formData() : false;
 
   if (data) {
@@ -101,21 +99,20 @@ router.post('/api/new', async (request, env: Env, context: paperframeContext) =>
   }
 });
 
-router.get('/api/image/:id', async (request, env: Env, context) => {
-  if (request.params?.id == 'sample') {
-    const sample = await env.STORAGE.get('sample.jpg');
+router.get('/api/image/:id', async (request, env: paperframeEnv, context: paperframeContext) => {
+  const image = context.carousel.find((i) => i.id.toString() === request.params?.id);
+  const file = (image) ? await env.STORAGE.get(image.filename) : null;
 
-    if (sample?.body) {
-      return new Response(sample.body, {
-        headers: {
-          'content-type': 'image/jpeg',
-        },
-      });
-    }
+  if (file?.body) {
+    return new Response(file.body, {
+      headers: {
+        'content-type': 'image/jpeg',
+      },
+    });
   }
 });
 
-router.get('/api/bulk', async (request, env: Env, context: paperframeContext) => {
+router.get('/api/bulk', async (request, env: paperframeEnv, context: paperframeContext) => {
   return new Response(JSON.stringify(context.carousel), {
     headers: {
       'content-type': 'application/json',
