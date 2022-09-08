@@ -80,13 +80,13 @@ router.post('/api/image', async (request, env: paperframeEnv, context: paperfram
   context.carousel.push(meta);
 
   const success = await env.STORAGE.put(filename, file.stream())
-  .then(async (stored) => {
+  .then(async () => {
     return await Promise.all([
       env.METADATA.put('carousel', JSON.stringify(context.carousel)),
       env.METADATA.put('autoinc', context.autoinc.toString()),
     ]);
   })
-  .then(async (data) => {
+  .then(async () => {
     return true;
   })
   .catch((error) => {
@@ -130,7 +130,7 @@ router.delete('/api/image/:id', async (request, env: paperframeEnv, context: pap
   .then(async () => {
     return await env.METADATA.put('carousel', JSON.stringify(context.carousel))
   })
-  .then(async (data) => {
+  .then(async () => {
     return true;
   })
   .catch((error) => {
