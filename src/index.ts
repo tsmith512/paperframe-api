@@ -81,15 +81,12 @@ router.post('/api/image', async (request, env: paperframeEnv, context: paperfram
 
   const success = await env.STORAGE.put(filename, file.stream())
   .then(async (stored) => {
-    console.log('file uploaded');
     return await Promise.all([
       env.METADATA.put('carousel', JSON.stringify(context.carousel)),
       env.METADATA.put('autoinc', context.autoinc.toString()),
     ]);
   })
   .then(async (data) => {
-    // @TODO: I am not sure if this is a good way to know that both operations
-    // succeeded or not...
     return true;
   })
   .catch((error) => {
@@ -154,6 +151,44 @@ router.get('/api/carousel', async (request, env: paperframeEnv, context: paperfr
       'content-type': 'application/json',
     }
   });
+});
+
+router.post('/api/carousel', async (request, env: paperframeEnv, context: paperframeContext) => {
+  // @TODO: This seems like a typing error that request.json() may not exist...
+  const order = (request.json) ? await request.json() : [];
+
+  if (!Array.isArray(order) || !order.length) {
+    return new Response('Bad request: new order must be an array of IDs', { status: 400 });
+  }
+
+  order.forEach((id, newIndex) => {
+    const currentIndex = context.carousel.findIndex((i) => i.id === parseInt(id));
+
+    // @TODO: This is only gonna work reliably if every ID is specified exactly
+    // once in the new order. But at least there won't be potential loss/dupes.
+    if (currentIndex > -1) {
+      context.carousel[currentIndex].order = newIndex;
+    }
+  });
+
+  // Because the new indexes are from the array position, not manually spec'd,
+  // we know images[].order will be unique.
+  context.carousel.sort((a, b) => (a.order < b.order) ? -1 : 1);
+
+  const success = await env.METADATA.put('carousel', JSON.stringify(context.carousel))
+  .then(() => {
+    return true;
+  })
+  .catch((error) => {
+    console.log(JSON.stringify(error));
+    return false;
+  });
+
+  if (success) {
+    return new Response('Order updated', { status: 200 });
+  }
+
+  return new Response('Unknown error', { status: 500 });
 });
 
 router.all('*', basic404);
