@@ -201,22 +201,31 @@ router.all('*', basic404);
 export default {
   fetch: router.handle,
 
-  scheduled: (event, env: pfEnv, ctx) => {
-    ctx.waitUntil(async () => {
-      // @TODO: DRY... this is repeated from the context fetch above
+  scheduled: async (event, env: pfEnv, ctx) => {
+    // @TODO: DRY... this is repeated from the context fetch above
 
-      // Get our index of all images.
-      const carousel = await env.METADATA.get('carousel').then((data) =>
-        data ? JSON.parse(data) : []
-      );
+    // Get our index of all images.
+    const carousel = await env.METADATA.get('carousel').then((data) =>
+      data ? JSON.parse(data) : []
+    );
+    console.log('cron carousel:' + JSON.stringify(carousel));
 
-      // Get the current (@TODO: Order or ID?) that should be on display right now.
-      const current = await env.METADATA.get('current').then((data) =>
-        data ? parseInt(data) : 0
-      );
+    // Get the current (@TODO: Order or ID?) that should be on display right now.
+    const current = await env.METADATA.get('current').then((data) =>
+      data ? parseInt(data) : 0
+    );
+    console.log('cron current: ' + current);
 
-      const next = (current + 1) % carousel.length;
-      return await env.METADATA.put('current', next.toString());
-    });
+    const next = (current + 1) % carousel.length;
+    console.log('cron next: ' + next);
+
+    console.log('saving new value: ' + next);
+    await env.METADATA.put('current', next.toString());
+
+    const newValue = await env.METADATA.get('current').then((data) =>
+      data ? parseInt(data) : 0
+    );
+
+    console.log('done! new value was: ' + newValue);
   },
 };
