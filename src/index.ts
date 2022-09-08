@@ -195,4 +195,21 @@ router.all('*', basic404);
 
 export default {
   fetch: router.handle,
+
+  scheduled: (event, env: paperframeEnv, ctx) => {
+    ctx.waitUntil(async () => {
+      // @TODO: DRY... this is repeated from the context fetch above
+
+      // Get our index of all images.
+      const carousel = await env.METADATA.get('carousel')
+      .then((data) => data ? JSON.parse(data) : []);
+
+      // Get the current (@TODO: Order or ID?) that should be on display right now.
+      const current = await env.METADATA.get('current')
+      .then((data) => data ? parseInt(data) : 0);
+
+      const next = (current + 1) % carousel.length;
+      return await env.METADATA.put('autoinc', next.toString());
+    });
+  },
 };
