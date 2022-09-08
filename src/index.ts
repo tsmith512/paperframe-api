@@ -208,24 +208,16 @@ export default {
     const carousel = await env.METADATA.get('carousel').then((data) =>
       data ? JSON.parse(data) : []
     );
-    console.log('cron carousel:' + JSON.stringify(carousel));
 
-    // Get the current (@TODO: Order or ID?) that should be on display right now.
+    // Get the current frame that should be on display right now.
     const current = await env.METADATA.get('current').then((data) =>
       data ? parseInt(data) : 0
     );
-    console.log('cron current: ' + current);
 
+    // Increment it
     const next = (current + 1) % carousel.length;
-    console.log('cron next: ' + next);
 
-    console.log('saving new value: ' + next);
+    // Save it
     await env.METADATA.put('current', next.toString());
-
-    const newValue = await env.METADATA.get('current').then((data) =>
-      data ? parseInt(data) : 0
-    );
-
-    console.log('done! new value was: ' + newValue);
   },
 };
