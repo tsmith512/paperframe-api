@@ -33,6 +33,11 @@ const basic200 = () => new Response('Paperframe backend is running', {
   status: 200,
   headers: corsHeaders,
 });
+const basicCors = () => new Response(null, {
+  status: 204,
+  headers: corsHeaders,
+});
+
 
 router.get('/api', basic200);
 
@@ -238,6 +243,7 @@ router.post('/api/carousel', async (request, env: pfEnv, context: pfCtx) => {
   });
 });
 
+router.options('*', basicCors);
 router.all('*', basic404);
 
 export default {
