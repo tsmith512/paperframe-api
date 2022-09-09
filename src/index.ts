@@ -5,25 +5,34 @@ interface pfEnv {
   STORAGE: R2Bucket;
 }
 
-interface imageMeta {
-  id: number;
-  title: string;
-  filename: string;
-  order: number;
-}
-
-type imageCarousel = imageMeta[];
-
 interface pfCtx {
   carousel: imageCarousel;
   current: number;
   autoinc: number;
 }
 
+export interface imageMeta {
+  id: number;
+  title: string;
+  filename: string;
+  order: number;
+}
+
+export type imageCarousel = imageMeta[];
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
+};
+
+
 const router = Router();
 
 const basic404 = () => new Response('Route not found', { status: 404 });
-const basic200 = () => new Response('Paperframe backend is running');
+const basic200 = () => new Response('Paperframe backend is running', {
+  status: 200,
+  headers: corsHeaders,
+});
 
 router.get('/api', basic200);
 
@@ -54,6 +63,7 @@ router.get('/api/now', (request, env: pfEnv, context: pfCtx) => {
     status: 302,
     headers: {
       Location: `/api/image/${image.id}`,
+      ...corsHeaders,
     },
   });
 });
@@ -98,10 +108,16 @@ router.post('/api/image', async (request, env: pfEnv, context: pfCtx) => {
     });
 
   if (success) {
-    return new Response('Image uploaded', { status: 201 });
+    return new Response('Image uploaded', {
+      status: 201,
+      headers: corsHeaders,
+    });
   }
 
-  return new Response('Unknown error', { status: 500 });
+  return new Response('Unknown error', {
+    status: 500,
+    headers: corsHeaders,
+   });
 });
 
 router.get('/api/image/:id', async (request, env: pfEnv, context: pfCtx) => {
@@ -112,6 +128,7 @@ router.get('/api/image/:id', async (request, env: pfEnv, context: pfCtx) => {
     return new Response(file.body, {
       headers: {
         'content-type': 'image/jpeg',
+        ...corsHeaders
       },
     });
   }
@@ -142,7 +159,10 @@ router.delete('/api/image/:id', async (request, env: pfEnv, context: pfCtx) => {
     });
 
   if (success) {
-    return new Response(null, { status: 204 });
+    return new Response(null, {
+      status: 204,
+      headers: corsHeaders,
+    });
   }
 
   return new Response('Unknown error', { status: 500 });
@@ -152,6 +172,7 @@ router.get('/api/carousel', async (request, env: pfEnv, context: pfCtx) => {
   return new Response(JSON.stringify(context.carousel), {
     headers: {
       'content-type': 'application/json',
+      ...corsHeaders,
     },
   });
 });
@@ -163,6 +184,7 @@ router.post('/api/carousel', async (request, env: pfEnv, context: pfCtx) => {
   if (!Array.isArray(order) || !order.length) {
     return new Response('Bad request: new order must be an array of IDs', {
       status: 400,
+      headers: corsHeaders,
     });
   }
 
@@ -190,10 +212,16 @@ router.post('/api/carousel', async (request, env: pfEnv, context: pfCtx) => {
     });
 
   if (success) {
-    return new Response('Order updated', { status: 200 });
+    return new Response('Order updated', {
+      status: 200,
+      headers: corsHeaders,
+    });
   }
 
-  return new Response('Unknown error', { status: 500 });
+  return new Response('Unknown error', {
+    status: 500,
+    headers: corsHeaders,
+  });
 });
 
 router.all('*', basic404);
@@ -201,7 +229,7 @@ router.all('*', basic404);
 export default {
   fetch: router.handle,
 
-  scheduled: async (event, env: pfEnv, ctx) => {
+  scheduled: async (event: ScheduledController, env: pfEnv, ctx: ExecutionContext) => {
     // @TODO: DRY... this is repeated from the context fetch above
 
     // Get our index of all images.
