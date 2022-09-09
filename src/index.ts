@@ -54,18 +54,32 @@ router.all('*', async (request, env: pfEnv, context: any) => {
   );
 });
 
-router.get('/api/now', (request, env: pfEnv, context: pfCtx) => {
+router.get('/api/now/:type', (request, env: pfEnv, context: pfCtx) => {
   // Figure out what image should be currently displayed
   const image = context.carousel[context.current % context.carousel.length];
 
-  // Redirect to it. (@TODO: Should we be nice and send it directly?)
-  return new Response('See current frame', {
-    status: 302,
-    headers: {
-      Location: `/api/image/${image.id}`,
-      ...corsHeaders,
-    },
-  });
+  // If only the ID was requested
+  if (request.params?.type === 'id') {
+    return new Response(JSON.stringify(context.current), {
+      status: 200,
+      headers: {
+        'content-type': 'application/json',
+        ...corsHeaders,
+      }
+    });
+  } else if (request.params?.type === 'image') {
+    // Otherwise redirect to it. @TODO: Now that it's explicitly a request
+    // for the current image, and there's an endpoint for ID, just return it??
+    return new Response('See current frame', {
+      status: 302,
+      headers: {
+        Location: `/api/image/${image.id}`,
+        ...corsHeaders,
+      },
+    });
+  }
+
+  // :type is required; pass to 404 otherwise.
 });
 
 router.post('/api/image', async (request, env: pfEnv, context: pfCtx) => {
