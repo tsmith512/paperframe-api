@@ -65,7 +65,7 @@ router.get('/api/now/:type', (request, env: pfEnv, context: pfCtx) => {
 
   // If only the ID was requested
   if (request.params?.type === 'id') {
-    return new Response(JSON.stringify(context.current), {
+    return new Response(JSON.stringify(image.id), {
       status: 200,
       headers: {
         'content-type': 'application/json',
