@@ -16,3 +16,7 @@ route = 'paperframe.tsmith.photos/api*'
 
 [triggers]
 crons = ["*/5 * * * *"]
+
+[vars]
+# API_ADMIN_USER (secret)
+# API_ADMIN_PASS (secret)

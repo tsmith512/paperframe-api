@@ -1,14 +1,18 @@
 import { Router } from 'itty-router';
+import { authCheck, requireAdmin } from './lib/Auth';
 
-interface pfEnv {
+export interface pfEnv {
   METADATA: KVNamespace;
   STORAGE: R2Bucket;
+  API_ADMIN_USER: string;
+  API_ADMIN_PASS: string;
 }
 
-interface pfCtx {
+export interface pfCtx {
   carousel: imageCarousel;
   current: number;
   autoinc: number;
+  authorized: boolean;
 }
 
 export interface imageMeta {
@@ -20,9 +24,10 @@ export interface imageMeta {
 
 export type imageCarousel = imageMeta[];
 
-const corsHeaders = {
+export const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
+  'WWW-Authenticate': 'Basic realm="Paperframe API"',
 };
 
 
@@ -57,6 +62,22 @@ router.all('*', async (request, env: pfEnv, context: any) => {
   context.autoinc = await env.METADATA.get('autoinc').then((data) =>
     data ? parseInt(data) + 1 : 0
   );
+
+  context.authorized = authCheck(request, env);
+});
+
+router.get('/api/auth/login', requireAdmin, (request, env: pfEnv, context: pfCtx) => {
+  return new Response(null, {
+    status: 204,
+    headers: corsHeaders,
+  });
+});
+
+router.get('/api/auth/check', (request, env: pfEnv, context: pfCtx) => {
+  return new Response(null, {
+    status: (context.authorized) ? 200 : 400,
+    headers: corsHeaders,
+  });
 });
 
 router.get('/api/now/:type', (request, env: pfEnv, context: pfCtx) => {
@@ -87,7 +108,7 @@ router.get('/api/now/:type', (request, env: pfEnv, context: pfCtx) => {
   // :type is required; pass to 404 otherwise.
 });
 
-router.post('/api/image', async (request, env: pfEnv, context: pfCtx) => {
+router.post('/api/image', requireAdmin, async (request, env: pfEnv, context: pfCtx) => {
   const data = request.formData ? await request.formData() : false;
 
   if (!data) {
@@ -153,7 +174,7 @@ router.get('/api/image/:id', async (request, env: pfEnv, context: pfCtx) => {
   }
 });
 
-router.delete('/api/image/:id', async (request, env: pfEnv, context: pfCtx) => {
+router.delete('/api/image/:id', requireAdmin, async (request, env: pfEnv, context: pfCtx) => {
   const index = context.carousel.findIndex((i) => i.id.toString() === request.params?.id);
   const image = context.carousel[index];
 
@@ -196,7 +217,7 @@ router.get('/api/carousel', async (request, env: pfEnv, context: pfCtx) => {
   });
 });
 
-router.post('/api/carousel', async (request, env: pfEnv, context: pfCtx) => {
+router.post('/api/carousel', requireAdmin, async (request, env: pfEnv, context: pfCtx) => {
   // @TODO: This seems like a typing error that request.json() may not exist...
   const order = request.json ? await request.json() : [];
 
