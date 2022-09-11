@@ -78,7 +78,7 @@ router.get('/api/auth/login', requireAdmin, (request, env: pfEnv, context: pfCtx
 
 router.get('/api/auth/check', (request, env: pfEnv, context: pfCtx) => {
   return new Response(null, {
-    status: (context.authorized) ? 200 : 400,
+    status: (context.authorized) ? 204 : 400,
     headers: corsHeaders,
   });
 });
