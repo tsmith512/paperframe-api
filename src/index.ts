@@ -68,8 +68,11 @@ router.all('*', async (request, env: pfEnv, context: any) => {
 
 router.get('/api/auth/login', requireAdmin, (request, env: pfEnv, context: pfCtx) => {
   return new Response(null, {
-    status: 204,
-    headers: corsHeaders,
+    status: 302,
+    headers: {
+      Location: '/',
+      ...corsHeaders,
+    },
   });
 });
 
