@@ -15,7 +15,7 @@ kv_namespaces = [
 route = 'paperframe.tsmith.photos/api*'
 
 [triggers]
-crons = ["*/5 * * * *"]
+crons = ["55 * * * *"]
 
 [vars]
 # API_ADMIN_USER (secret)
