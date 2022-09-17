@@ -167,10 +167,13 @@ router.get('/api/image/:id', async (request, env: pfEnv, context: pfCtx) => {
   const image = context.carousel.find((i) => i.id.toString() === request.params?.id);
   const file = image ? await env.STORAGE.get(image.filename) : null;
 
+  // Should be JPG or GIF only, although that is not currently enforced on upload.
+  const ext = image?.filename.split('.').pop();
+
   if (file?.body) {
     return new Response(file.body, {
       headers: {
-        'content-type': 'image/jpeg',
+        'content-type': `image/${ext}`,
         ...corsHeaders
       },
     });
