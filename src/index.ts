@@ -19,7 +19,6 @@ export interface imageMeta {
   id: number;
   title: string;
   filename: string;
-  order: number;
 }
 
 export type imageCarousel = imageMeta[];
@@ -52,7 +51,7 @@ router.all('*', async (request, env: pfEnv, context: any) => {
     data ? JSON.parse(data) : []
   );
 
-  // Get the current (@TODO: Order or ID?) that should be on display right now.
+  // Get the current index that should be on display right now.
   context.current = await env.METADATA.get('current').then((data) =>
     data ? parseInt(data) : 0
   );
@@ -130,9 +129,6 @@ router.post('/api/image', requireAdmin, async (request, env: pfEnv, context: pfC
     id: context.autoinc,
     title,
     filename,
-    // Find the largest order and add one to prevent gaps/overlaps... still...
-    // @TODO: So if the carousel is an array, we don't need this...?
-    order: context.carousel.reduce((max, img) => Math.max(max, img.order), 0) + 1,
   };
 
   context.carousel.push(meta);
@@ -225,6 +221,8 @@ router.get('/api/carousel', async (request, env: pfEnv, context: pfCtx) => {
   });
 });
 
+/*
+@TODO TAKING THIS ENDPOINT OUT WHILE DUMPING ORDER AS AN IMAGE PROP
 router.post('/api/carousel', requireAdmin, async (request, env: pfEnv, context: pfCtx) => {
   // @TODO: This seems like a typing error that request.json() may not exist...
   const order = request.json ? await request.json() : [];
@@ -271,6 +269,7 @@ router.post('/api/carousel', requireAdmin, async (request, env: pfEnv, context: 
     headers: corsHeaders,
   });
 });
+*/
 
 router.options('*', basicCors);
 router.all('*', basic404);
