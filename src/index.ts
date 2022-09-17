@@ -130,7 +130,9 @@ router.post('/api/image', requireAdmin, async (request, env: pfEnv, context: pfC
     id: context.autoinc,
     title,
     filename,
-    order: context.carousel.length, // @TODO: So if the carousel is an array, we don't need this...?
+    // Find the largest order and add one to prevent gaps/overlaps... still...
+    // @TODO: So if the carousel is an array, we don't need this...?
+    order: context.carousel.reduce((max, img) => Math.max(max, img.order), 0) + 1,
   };
 
   context.carousel.push(meta);
