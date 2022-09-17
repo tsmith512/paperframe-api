@@ -88,7 +88,7 @@ router.get('/api/now/:type', (request, env: pfEnv, context: pfCtx) => {
   const image = context.carousel[context.current % context.carousel.length];
 
   // If only the ID was requested
-  if (request.params?.type === 'id') {
+  if (image && request.params?.type === 'id') {
     return new Response(JSON.stringify(image.id), {
       status: 200,
       headers: {
@@ -96,7 +96,7 @@ router.get('/api/now/:type', (request, env: pfEnv, context: pfCtx) => {
         ...corsHeaders,
       }
     });
-  } else if (request.params?.type === 'image') {
+  } else if (image && request.params?.type === 'image') {
     // Otherwise redirect to it. @TODO: Now that it's explicitly a request
     // for the current image, and there's an endpoint for ID, just return it??
     return new Response('See current frame', {
