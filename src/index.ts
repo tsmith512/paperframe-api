@@ -221,8 +221,6 @@ router.get('/api/carousel', async (request, env: pfEnv, context: pfCtx) => {
   });
 });
 
-/*
-@TODO TAKING THIS ENDPOINT OUT WHILE DUMPING ORDER AS AN IMAGE PROP
 router.post('/api/carousel', requireAdmin, async (request, env: pfEnv, context: pfCtx) => {
   // @TODO: This seems like a typing error that request.json() may not exist...
   const order = request.json ? await request.json() : [];
@@ -234,21 +232,31 @@ router.post('/api/carousel', requireAdmin, async (request, env: pfEnv, context: 
     });
   }
 
-  order.forEach((id, newIndex) => {
+  if (order.length !== [...new Set(order)].length) {
+    return new Response('Bad request: new order contained duplicates', {
+      status: 400,
+      headers: corsHeaders,
+    });
+  }
+
+  const newCarousel = order.reduce((c, id) => {
     const currentIndex = context.carousel.findIndex((i) => i.id === parseInt(id));
 
-    // @TODO: This is only gonna work reliably if every ID is specified exactly
-    // once in the new order. But at least there won't be potential loss/dupes.
     if (currentIndex > -1) {
-      context.carousel[currentIndex].order = newIndex;
+      c.push(context.carousel[currentIndex]);
     }
-  });
 
-  // Because the new indexes are from the array position, not manually spec'd,
-  // we know images[].order will be unique.
-  context.carousel.sort((a, b) => (a.order < b.order ? -1 : 1));
+    return c;
+  }, [] as imageMeta[]);
 
-  const success = await env.METADATA.put('carousel', JSON.stringify(context.carousel))
+  if (newCarousel.length !== context.carousel.length) {
+    return new Response('Error: new carousel had different length than original', {
+      status: 500,
+      headers: corsHeaders,
+    });
+  }
+
+  const success = await env.METADATA.put('carousel', JSON.stringify(newCarousel))
     .then(() => {
       return true;
     })
@@ -269,7 +277,6 @@ router.post('/api/carousel', requireAdmin, async (request, env: pfEnv, context: 
     headers: corsHeaders,
   });
 });
-*/
 
 router.options('*', basicCors);
 router.all('*', basic404);
