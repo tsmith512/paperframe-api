@@ -110,6 +110,25 @@ router.get('/api/now/:type', (request, env: pfEnv, context: pfCtx) => {
   // :type is required; pass to 404 otherwise.
 });
 
+router.post('/api/now', requireAdmin, async (request, env: pfEnv, context: pfCtx) => {
+  // @TODO: This seems like a typing error that request.json() may not exist...
+  const index = request.json ? await request.json() : null;
+
+  if (Number.isInteger(index) && index < context.carousel.length) {
+    await env.METADATA.put('current', index.toString());
+
+    return new Response(null, {
+      status: 204,
+      headers: corsHeaders,
+    });
+  }
+
+  return new Response('Bad request: index was not an integer or was out of bounds', {
+    status: 400,
+    headers: corsHeaders,
+  });
+});
+
 router.post('/api/image', requireAdmin, async (request, env: pfEnv, context: pfCtx) => {
   const data = request.formData ? await request.formData() : false;
 
