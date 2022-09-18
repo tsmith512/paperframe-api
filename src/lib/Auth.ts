@@ -1,5 +1,5 @@
 import { Request } from 'itty-router';
-import { corsHeaders, pfCtx, pfEnv } from '..';
+import { globalheaders, pfCtx, pfEnv } from '..';
 
 // Originally adapted from dommmel/cloudflare-workers-basic-auth but also ripped
 // as-is straight from tsmith512/rnf-location-service
@@ -93,7 +93,7 @@ export const requireAdmin = (request: Request, env: pfEnv, context: pfCtx) => {
   if (context.authorized !== true) {
     return new Response('Unauthorized', {
       status: 401,
-      headers: corsHeaders,
+      headers: globalheaders,
     });
   }
 };

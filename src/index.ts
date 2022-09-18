@@ -1,6 +1,9 @@
 import { Router } from 'itty-router';
 import { authCheck, requireAdmin } from './lib/Auth';
 
+/**
+ * Environment variables and bindings to R2 Storage and Workers KV (datastore)
+ */
 export interface pfEnv {
   METADATA: KVNamespace;
   STORAGE: R2Bucket;
@@ -8,6 +11,9 @@ export interface pfEnv {
   API_ADMIN_PASS: string;
 }
 
+/**
+ * Application "context" passed to all route handlers
+ */
 export interface pfCtx {
   carousel: imageCarousel;
   current: number;
@@ -15,36 +21,54 @@ export interface pfCtx {
   authorized: boolean;
 }
 
+/**
+ * A single photo in the carousel
+ */
 export interface imageMeta {
   id: number;
   title: string;
   filename: string;
 }
 
+/**
+ * The carousel is just an array of photos
+ */
 export type imageCarousel = imageMeta[];
 
-export const corsHeaders = {
+/**
+ * These headers are sent back on every response
+ */
+export const globalheaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
   'WWW-Authenticate': 'Basic realm="Paperframe API"',
 };
 
-
 const router = Router();
+
+//          _
+//  ___ ___| |_ _  _ _ __
+// (_-</ -_)  _| || | '_ \
+// /__/\___|\__|\_,_| .__/
+//                 |_|
 
 const basic404 = () => new Response('Route not found', { status: 404 });
 const basic200 = () => new Response('Paperframe backend is running', {
   status: 200,
-  headers: corsHeaders,
+  headers: globalheaders,
 });
 const basicCors = () => new Response(null, {
   status: 204,
-  headers: corsHeaders,
+  headers: globalheaders,
 });
 
-
 router.get('/api', basic200);
+router.options('*', basicCors);
 
+/**
+ * For all routes, load up the carousel, current frame, the next ID to save, and
+ * whether or not this request came with admin credentials. Save to conext.
+ */
 router.all('*', async (request, env: pfEnv, context: any) => {
   // Get our index of all images.
   context.carousel = await env.METADATA.get('carousel').then((data) =>
@@ -65,51 +89,74 @@ router.all('*', async (request, env: pfEnv, context: any) => {
   context.authorized = authCheck(request, env);
 });
 
+//            _   _
+//  __ _ _  _| |_| |_
+// / _` | || |  _| ' \
+// \__,_|\_,_|\__|_||_|
+
+/**
+ * Trigger a Basic HTTP Authentication login with the requireAdmin middleware
+ * then redirect to the home page for a full reload. Call from the frontend as
+ * a link, not an API call.
+ */
 router.get('/api/auth/login', requireAdmin, (request, env: pfEnv, context: pfCtx) => {
   return new Response(null, {
     status: 302,
     headers: {
       Location: '/',
-      ...corsHeaders,
+      ...globalheaders,
     },
   });
 });
 
+/**
+ * Use on the frontend to check if the session is authenticated with HTTP Basic
+ * Auth. If the browser included admin creds, a 204 is returned, 400 otherwise,
+ * which does not trigger a login.
+ */
 router.get('/api/auth/check', (request, env: pfEnv, context: pfCtx) => {
   return new Response(null, {
     status: (context.authorized) ? 204 : 400,
-    headers: corsHeaders,
+    headers: globalheaders,
   });
 });
 
+//                          _      __
+//  __ _  _ _ _ _ _ ___ _ _| |_   / _|_ _ __ _ _ __  ___
+// / _| || | '_| '_/ -_) ' \  _| |  _| '_/ _` | '  \/ -_)
+// \__|\_,_|_| |_| \___|_||_\__| |_| |_| \__,_|_|_|_\___|
+
+/**
+ * GET the current frame by ID or a redirect to the image itself
+ */
 router.get('/api/now/:type', (request, env: pfEnv, context: pfCtx) => {
   // Figure out what image should be currently displayed
   const image = context.carousel[context.current % context.carousel.length];
 
-  // If only the ID was requested
   if (image && request.params?.type === 'id') {
     return new Response(JSON.stringify(image.id), {
       status: 200,
       headers: {
         'content-type': 'application/json',
-        ...corsHeaders,
+        ...globalheaders,
       }
     });
   } else if (image && request.params?.type === 'image') {
-    // Otherwise redirect to it. @TODO: Now that it's explicitly a request
-    // for the current image, and there's an endpoint for ID, just return it??
     return new Response('See current frame', {
       status: 302,
       headers: {
         Location: `/api/image/${image.id}`,
-        ...corsHeaders,
+        ...globalheaders,
       },
     });
   }
 
-  // :type is required; pass to 404 otherwise.
+  // 404 if the image wasn't available for :type was not `id` or `image`
 });
 
+/**
+ * POST an image ID to set it as the current active frame. Admin credentials required.
+ */
 router.post('/api/now', requireAdmin, async (request, env: pfEnv, context: pfCtx) => {
   // @TODO: This seems like a typing error that request.json() may not exist...
   const id = request.json ? await request.json() : null;
@@ -122,17 +169,27 @@ router.post('/api/now', requireAdmin, async (request, env: pfEnv, context: pfCtx
 
       return new Response(null, {
         status: 204,
-        headers: corsHeaders,
+        headers: globalheaders,
       });
     }
   }
 
   return new Response('Bad request: ID not found or not an integer', {
     status: 400,
-    headers: corsHeaders,
+    headers: globalheaders,
   });
 });
 
+//  _
+// (_)_ __  __ _ __ _ ___ ___
+// | | '  \/ _` / _` / -_|_-<
+// |_|_|_|_\__,_\__, \___/__/
+//              |___/
+
+/**
+ * POST an image to upload. A file is "image" is required, and a title as "title"
+ * is recommended. Post as formData. Admin credentials required.
+ */
 router.post('/api/image', requireAdmin, async (request, env: pfEnv, context: pfCtx) => {
   const data = request.formData ? await request.formData() : false;
 
@@ -174,16 +231,19 @@ router.post('/api/image', requireAdmin, async (request, env: pfEnv, context: pfC
   if (success) {
     return new Response('Image uploaded', {
       status: 201,
-      headers: corsHeaders,
+      headers: globalheaders,
     });
   }
 
   return new Response('Unknown error', {
     status: 500,
-    headers: corsHeaders,
+    headers: globalheaders,
    });
 });
 
+/**
+ * GET an image download by ID. Returns the image file directly from R2.
+ */
 router.get('/api/image/:id', async (request, env: pfEnv, context: pfCtx) => {
   const image = context.carousel.find((i) => i.id.toString() === request.params?.id);
   const file = image ? await env.STORAGE.get(image.filename) : null;
@@ -195,12 +255,16 @@ router.get('/api/image/:id', async (request, env: pfEnv, context: pfCtx) => {
     return new Response(file.body, {
       headers: {
         'content-type': `image/${ext}`,
-        ...corsHeaders
+        ...globalheaders
       },
     });
   }
 });
 
+/**
+ * DELETE an image by ID. Removes from carousel data and R2 storage. Admin
+ * credentials required.
+ */
 router.delete('/api/image/:id', requireAdmin, async (request, env: pfEnv, context: pfCtx) => {
   const index = context.carousel.findIndex((i) => i.id.toString() === request.params?.id);
   const image = context.carousel[index];
@@ -228,40 +292,64 @@ router.delete('/api/image/:id', requireAdmin, async (request, env: pfEnv, contex
   if (success) {
     return new Response(null, {
       status: 204,
-      headers: corsHeaders,
+      headers: globalheaders,
     });
   }
 
   return new Response('Unknown error', { status: 500 });
 });
 
+//                               _
+//  __ __ _ _ _ ___ _  _ ___ ___| |
+// / _/ _` | '_/ _ \ || (_-</ -_) |
+// \__\__,_|_| \___/\_,_/__/\___|_|
+
+/**
+ * GET the entire carousel. Provides an array of imageMeta objects in order.
+ */
 router.get('/api/carousel', async (request, env: pfEnv, context: pfCtx) => {
   return new Response(JSON.stringify(context.carousel), {
     headers: {
       'content-type': 'application/json',
-      ...corsHeaders,
+      ...globalheaders,
     },
   });
 });
 
+
+/**
+ * POST an updated order of the carousel by sending an array of IDs.
+ */
 router.post('/api/carousel', requireAdmin, async (request, env: pfEnv, context: pfCtx) => {
   // @TODO: This seems like a typing error that request.json() may not exist...
   const order = request.json ? await request.json() : [];
 
+  // Make sure the provided payload was a non-empty array
   if (!Array.isArray(order) || !order.length) {
     return new Response('Bad request: new order must be an array of IDs', {
       status: 400,
-      headers: corsHeaders,
+      headers: globalheaders,
     });
   }
 
+  // The new array should not contain duplicates
   if (order.length !== [...new Set(order)].length) {
     return new Response('Bad request: new order contained duplicates', {
       status: 400,
-      headers: corsHeaders,
+      headers: globalheaders,
     });
   }
 
+  // The new array should be the same length as the current one
+  if (order.length !== context.carousel.length) {
+    return new Response('Bad request: new order is a different length', {
+      status: 400,
+      headers: globalheaders,
+    });
+  }
+
+  // Step through the array of IDs and populate a new array with the imageMeta[]
+  // objects to create a new carousel.
   const newCarousel = order.reduce((c, id) => {
     const currentIndex = context.carousel.findIndex((i) => i.id === parseInt(id));
 
@@ -272,13 +360,15 @@ router.post('/api/carousel', requireAdmin, async (request, env: pfEnv, context: 
     return c;
   }, [] as imageMeta[]);
 
+  // Sanity check: does the new size match the old one?
   if (newCarousel.length !== context.carousel.length) {
     return new Response('Error: new carousel had different length than original', {
       status: 500,
-      headers: corsHeaders,
+      headers: globalheaders,
     });
   }
 
+  // Save and return
   const success = await env.METADATA.put('carousel', JSON.stringify(newCarousel))
     .then(() => {
       return true;
@@ -291,25 +381,30 @@ router.post('/api/carousel', requireAdmin, async (request, env: pfEnv, context: 
   if (success) {
     return new Response('Order updated', {
       status: 200,
-      headers: corsHeaders,
+      headers: globalheaders,
     });
   }
 
   return new Response('Unknown error', {
     status: 500,
-    headers: corsHeaders,
+    headers: globalheaders,
   });
 });
 
-router.options('*', basicCors);
+// Fallback: any request not already caught is a 404.
 router.all('*', basic404);
 
+//  _      _ _
+// (_)_ _ (_) |_
+// | | ' \| |  _|
+// |_|_||_|_|\__|
+
 export default {
+  // Inbound requests pass as-is to the router.
   fetch: router.handle,
 
+  // The scheduled job moves the current pointer to the next frame in the carousel.
   scheduled: async (event: ScheduledController, env: pfEnv, ctx: ExecutionContext) => {
-    // @TODO: DRY... this is repeated from the context fetch above
-
     // Get our index of all images.
     const carousel = await env.METADATA.get('carousel').then((data) =>
       data ? JSON.parse(data) : []
@@ -320,10 +415,8 @@ export default {
       data ? parseInt(data) : 0
     );
 
-    // Increment it
+    // Increment and save
     const next = (current + 1) % carousel.length;
-
-    // Save it
     await env.METADATA.put('current', next.toString());
   },
 };
