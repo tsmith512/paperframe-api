@@ -110,6 +110,38 @@ router.get('/api/auth/login', requireAdmin, (request, env: pfEnv, context: pfCtx
 });
 
 /**
+ * Trigger the browser to purge the Basic HTTP Authentication credentials by
+ * returning a 401 status code without a WWW-Authentication challenge header.
+ * Call from the frontend as a link, not an API call. Will redirect to home
+ * client-side.
+ */
+router.get('/api/auth/logout', (request, env: pfEnv, context: pfCtx) => {
+  const response = `
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta http-equiv="refresh" content="0;URL='/'" />
+    <title>Log Out | Paperframe</title>
+  </head>
+  <body>
+    Logging Out. <a href="/">Return home</a>.
+  </body>
+</html>
+  `;
+
+  return new Response(response, {
+    status: 401,
+    headers: {
+      ...globalheaders,
+      'Content-Type': 'text/html',
+      'WWW-Authenticate': '',
+    },
+  });
+});
+
+/**
  * Use on the frontend to check if the session is authenticated with HTTP Basic
  * Auth. If the browser included admin creds, a 204 is returned, 400 otherwise,
  * which does not trigger a login.
