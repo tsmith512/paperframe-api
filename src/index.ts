@@ -411,8 +411,8 @@ router.post('/api/carousel', requireAdmin, async (request, env: pfEnv, context: 
     });
 
   if (success) {
-    return new Response('Order updated', {
-      status: 200,
+    return new Response(null, {
+      status: 204,
       headers: globalheaders,
     });
   }
