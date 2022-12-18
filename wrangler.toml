@@ -12,7 +12,7 @@ kv_namespaces = [
   { binding = 'METADATA', id = 'e9cc7d31dab94e12846d890778ac74b3', preview_id = '01ec45005d4748c09bb3a7c80cb17008' }
 ]
 
-route = 'paperframe.tsmith.photos/api*'
+route = 'paperframes.net/api*'
 
 [triggers]
 crons = ["55 * * * *"]
