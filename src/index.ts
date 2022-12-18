@@ -9,6 +9,7 @@ export interface pfEnv {
   STORAGE: R2Bucket;
   API_ADMIN_USER: string;
   API_ADMIN_PASS: string;
+  RELEASE_BINARY: string;
 }
 
 /**
@@ -64,6 +65,19 @@ const basicCors = () => new Response(null, {
 
 router.get('/api', basic200);
 router.options('*', basicCors);
+
+/**
+ * For client-side updating, make a simple route to the latest tarball.
+ */
+router.get('/api/download', async (request, env: pfEnv, context: any) => {
+  return new Response(env.RELEASE_BINARY, {
+    status: 302,
+    headers: {
+      Location: env.RELEASE_BINARY,
+      ...globalheaders,
+    },
+  });
+});
 
 /**
  * For all routes, load up the carousel, current frame, the next ID to save, and

@@ -18,5 +18,6 @@ route = 'paperframes.net/api*'
 crons = ["55 * * * *"]
 
 [vars]
+RELEASE_BINARY = "https://github.com/tsmith512/paperframe-client/releases/download/v1.0.1-dev/paperframe-dev-v1.0.1-dev.tar.gz"
 # API_ADMIN_USER (secret)
 # API_ADMIN_PASS (secret)
